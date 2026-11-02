@@ -8,6 +8,9 @@
   "orientation": "any",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
+  "lang": "tr",
+  "dir": "ltr",
+  "categories": ["utilities", "productivity"],
   "icons": [
     {
       "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9Ijk2IiBmaWxsPSIjMGYxNzJhIi8+PHBhdGggZD0iTTE1NiAyNTYgTDM1NiAxNTYgTTM1NiAxNTYgTDM1NiAzNTYgTTM1NiAzNTYgTDE1NiAyNTYiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIyOCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGNpcmNsZSBjeD0iMTU2IiBjeT0iMjU2IiByPSIzNCIgZmlsbD0iIzIyYzU1ZSIvPjxjaXJjbGUgY3g9IjM1NiIgY3k9IjE1NiIgcj0iMzQiIGZpbGw9IiMyNTYzZWIiLz48Y2lyY2xlIGN4PSIzNTYiIGN5PSIzNTYiIHI9IjM0IiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+",
