@@ -17,12 +17,15 @@
     .status { font-size: 12px; padding: 4px 10px; border-radius: 12px; background: #475569; }
     .status.connected { background: #16a34a; }
     .status.waiting { background: #ca8a04; }
+    .status.error { background: #dc2626; }
     #scanScreen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 16px; text-align: center; }
     #scanScreen h2 { font-size: 18px; color: #94a3b8; }
     #videoWrap { position: relative; width: 100%; max-width: 320px; aspect-ratio: 1; background: #000; border-radius: 16px; overflow: hidden; }
     #video { width: 100%; height: 100%; object-fit: cover; }
     #videoWrap::after { content: ''; position: absolute; inset: 12%; border: 2px solid #38bdf8; border-radius: 12px; pointer-events: none; }
     #manualHint { font-size: 12px; color: #64748b; max-width: 300px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .btn-row button { background: #475569; color: white; border: none; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; }
     #chatScreen { flex: 1; display: none; flex-direction: column; overflow: hidden; }
     #messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
     .msg { max-width: 82%; padding: 9px 13px; border-radius: 12px; word-wrap: break-word; font-size: 14px; }
@@ -39,6 +42,8 @@
     #inputArea button, #inputArea label { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 20px; cursor: pointer; font-size: 14px; }
     #inputArea label { background: #475569; }
     #fileInput { display: none; }
+    #debugLog { position: fixed; bottom: 0; left: 0; right: 0; max-height: 100px; overflow-y: auto; background: #000d; color: #0f0; font-family: monospace; font-size: 10px; padding: 6px; display: none; z-index: 9999; }
+    #debugLog.show { display: block; }
   </style>
 </head>
 <body>
@@ -51,6 +56,10 @@
     <h2>📷 Bilgisayardaki QR kodu okutun</h2>
     <div id="videoWrap"><video id="video" autoplay playsinline muted></video></div>
     <p id="manualHint">Kamera erişimi verin veya QR kodun içindeki bağlantıyı elle girin.</p>
+    <div class="btn-row">
+      <button id="retryBtn" style="display:none">🔄 Yeniden Dene</button>
+      <button onclick="document.getElementById('debugLog').classList.toggle('show')">🐛 Log</button>
+    </div>
   </div>
 
   <div id="chatScreen">
@@ -63,6 +72,8 @@
     </div>
   </div>
 
+  <div id="debugLog"></div>
+
   <script>
     const CHUNK_SIZE = 16 * 1024;
     let peer = null;
@@ -70,6 +81,8 @@
     let incomingFile = null;
     let stream = null;
     let scanRAF = null;
+    let lastHostId = null;
+    let connectTimeout = null;
 
     const statusEl = document.getElementById('status');
     const scanScreen = document.getElementById('scanScreen');
@@ -79,29 +92,66 @@
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
     const fileInput = document.getElementById('fileInput');
+    const debugLog = document.getElementById('debugLog');
+    const retryBtn = document.getElementById('retryBtn');
+
+    function log(msg) {
+      const t = new Date().toLocaleTimeString('tr-TR');
+      debugLog.innerHTML += `[${t}] ${msg}<br>`;
+      debugLog.scrollTop = debugLog.scrollHeight;
+      console.log(msg);
+    }
 
     function setStatus(text, cls) {
       statusEl.textContent = text;
       statusEl.className = 'status ' + cls;
     }
 
+    const peerConfig = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: 'turn:eu-0.turn.peerjs.com:3478', username: 'peerjs', credential: 'peerjsp' },
+          { urls: 'turn:us-0.turn.peerjs.com:3478', username: 'peerjs', credential: 'peerjsp' }
+        ]
+      }
+    };
+
+    // URL'de ?id= varsa doğrudan bağlan
     const params = new URLSearchParams(location.search);
     const targetId = params.get('id');
 
     if (targetId) {
+      lastHostId = targetId;
       connectToPeer(targetId);
     } else {
       startCameraScan();
     }
 
+    retryBtn.addEventListener('click', () => {
+      if (lastHostId) {
+        log('Yeniden deneniyor: ' + lastHostId);
+        retryBtn.style.display = 'none';
+        connectToPeer(lastHostId);
+      } else {
+        log('Yeniden denemek için QR okutun');
+        startCameraScan();
+      }
+    });
+
     async function startCameraScan() {
+      stopCamera();
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
         video.srcObject = stream;
         video.addEventListener('loadedmetadata', () => { scanLoop(); }, { once: true });
+        log('Kamera açıldı, QR taranıyor');
       } catch (err) {
-        setStatus('Kamera hatası', 'waiting');
-        document.getElementById('manualHint').textContent = 'Kamera açılamadı: ' + err.message + ' — QR kodun içindeki bağlantıyı elle girmeniz gerekebilir.';
+        log('Kamera hatası: ' + err.message);
+        setStatus('Kamera hatası', 'error');
+        document.getElementById('manualHint').textContent = 'Kamera açılamadı: ' + err.message;
       }
     }
 
@@ -118,7 +168,13 @@
           const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
           if (code && code.data) {
             const id = extractPeerIdFromUrl(code.data);
-            if (id) { stopCamera(); connectToPeer(id); return; }
+            if (id) {
+              log('QR okundu! Host ID: ' + id);
+              lastHostId = id;
+              stopCamera();
+              connectToPeer(id);
+              return;
+            }
           }
         }
         scanRAF = requestAnimationFrame(tick);
@@ -132,42 +188,96 @@
 
     function stopCamera() {
       if (scanRAF) cancelAnimationFrame(scanRAF);
+      scanRAF = null;
       if (stream) stream.getTracks().forEach(t => t.stop());
       stream = null;
     }
 
     function connectToPeer(hostId) {
       setStatus('Bağlanıyor...', 'waiting');
-      peer = new Peer(null, { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } });
-      peer.on('open', () => {
-        conn = peer.connect(hostId, { reliable: true });
-        setupConnection(conn);
+      log('Peer oluşturuluyor (misafir)');
+      
+      // Eski peer'i temizle
+      if (peer) {
+        try { peer.destroy(); } catch(e) {}
+        peer = null;
+      }
+
+      peer = new Peer(null, peerConfig);
+
+      peer.on('open', (myId) => {
+        log('Kendi ID: ' + myId);
+        log('Host\'a bağlanılıyor: ' + hostId);
+        
+        // Host'un sinyal sunucusuna kaydolmasını bekle (yarış durumu önleme)
+        setTimeout(() => {
+          try {
+            conn = peer.connect(hostId, { reliable: true, serialization: 'binary' });
+            setupConnection(conn);
+          } catch (e) {
+            log('connect() hatası: ' + e.message);
+            setStatus('Bağlantı hatası', 'error');
+            retryBtn.style.display = 'inline-block';
+          }
+        }, 1500);
       });
+
       peer.on('error', (err) => {
-        console.error(err);
-        setStatus('Hata: ' + err.type, 'waiting');
-        if (targetId) {
-          history.replaceState(null, '', 'mobile.html');
-          scanScreen.style.display = 'flex';
-          chatScreen.style.display = 'none';
-          startCameraScan();
-        }
+        log('Peer hata: ' + err.type + ' — ' + err.message);
+        setStatus('Hata: ' + err.type, 'error');
+        retryBtn.style.display = 'inline-block';
       });
     }
 
     function setupConnection(c) {
+      // 20 saniye timeout — bağlantı kurulamazsa yeniden dene
+      connectTimeout = setTimeout(() => {
+        if (!c.open) {
+          log('⏱ Bağlantı zaman aşımı (20sn)');
+          setStatus('Zaman aşımı', 'error');
+          retryBtn.style.display = 'inline-block';
+          try { c.close(); } catch(e) {}
+        }
+      }, 20000);
+
       c.on('open', () => {
+        clearTimeout(connectTimeout);
+        log('✅ DataChannel AÇILDI');
         setStatus('Bağlı ✅', 'connected');
         scanScreen.style.display = 'none';
         chatScreen.style.display = 'flex';
         stopCamera();
+        retryBtn.style.display = 'none';
       });
+
       c.on('data', (d) => handleIncomingData(d));
+
       c.on('close', () => {
+        clearTimeout(connectTimeout);
+        log('❌ Bağlantı kapandı');
         setStatus('Bağlantı kapandı', 'waiting');
         chatScreen.style.display = 'none';
         scanScreen.style.display = 'flex';
+        conn = null;
       });
+
+      c.on('error', (err) => {
+        log('Bağlantı hatası: ' + err);
+        setStatus('Bağlantı hatası', 'error');
+        retryBtn.style.display = 'inline-block';
+      });
+
+      // ICE/PC durumunu izle
+      try {
+        const pc = c.peerConnection;
+        if (pc) {
+          pc.oniceconnectionstatechange = () => log('ICE: ' + pc.iceConnectionState);
+          pc.onconnectionstatechange = () => log('PC: ' + pc.connectionState);
+          pc.onicecandidate = (e) => {
+            if (e.candidate) log('ICE aday: ' + e.candidate.type);
+          };
+        }
+      } catch (e) { log('ICE izleme hatası: ' + e); }
     }
 
     function sendText() {
