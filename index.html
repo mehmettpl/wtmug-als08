@@ -17,11 +17,14 @@
     .status { font-size: 13px; padding: 4px 10px; border-radius: 12px; background: #475569; }
     .status.connected { background: #16a34a; }
     .status.waiting { background: #ca8a04; }
+    .status.error { background: #dc2626; }
     #qrScreen { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px; padding: 20px; }
     #qrScreen h2 { font-size: 22px; color: #94a3b8; }
     #qrcode { background: #fff; padding: 16px; border-radius: 12px; }
     #peerIdText { font-family: monospace; color: #38bdf8; font-size: 14px; word-break: break-all; max-width: 400px; text-align: center; }
     .hint { color: #64748b; font-size: 13px; text-align: center; max-width: 400px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .btn-row button { background: #475569; color: white; border: none; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; }
     #chatScreen { flex: 1; display: none; flex-direction: column; overflow: hidden; }
     #messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
     .msg { max-width: 70%; padding: 10px 14px; border-radius: 12px; word-wrap: break-word; font-size: 14px; }
@@ -38,7 +41,7 @@
     #inputArea button, #inputArea label { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; }
     #inputArea label { background: #475569; }
     #fileInput { display: none; }
-    #debugLog { position: fixed; bottom: 0; left: 0; right: 0; max-height: 120px; overflow-y: auto; background: #000a; color: #0f0; font-family: monospace; font-size: 10px; padding: 6px; display: none; z-index: 9999; }
+    #debugLog { position: fixed; bottom: 0; left: 0; right: 0; max-height: 120px; overflow-y: auto; background: #000e; color: #0f0; font-family: monospace; font-size: 10px; padding: 6px; display: none; z-index: 9999; }
     #debugLog.show { display: block; }
   </style>
 </head>
@@ -53,7 +56,10 @@
     <div id="qrcode"></div>
     <div id="peerIdText">Oturum başlatılıyor...</div>
     <p class="hint">Telefonunuzda <b>mobile.html</b> sayfasını açın ve kamerayı bu QR koda tutun. Bağlantı kurulunca sohbet ekranı otomatik açılır.</p>
-    <button onclick="document.getElementById('debugLog').classList.toggle('show')" style="background:#475569;color:white;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px">🐛 Log</button>
+    <div class="btn-row">
+      <button id="restartBtn">🔄 Oturumu Yenile</button>
+      <button id="logBtn">🐛 Log</button>
+    </div>
   </div>
 
   <div id="chatScreen">
@@ -82,6 +88,8 @@
     const sendBtn = document.getElementById('sendBtn');
     const fileInput = document.getElementById('fileInput');
     const debugLog = document.getElementById('debugLog');
+    const restartBtn = document.getElementById('restartBtn');
+    const logBtn = document.getElementById('logBtn');
 
     function log(msg) {
       const t = new Date().toLocaleTimeString('tr-TR');
@@ -95,38 +103,47 @@
       statusEl.className = 'status ' + cls;
     }
 
-    // TURN + STUN yapılandırması (mobil ağ NAT için)
+    logBtn.addEventListener('click', () => debugLog.classList.toggle('show'));
+
+    // PeerJS yapılandırması — güvenilir STUN + TURN
     const peerConfig = {
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          {
-            urls: 'turn:eu-0.turn.peerjs.com:3478',
-            username: 'peerjs',
-            credential: 'peerjsp'
-          },
-          {
-            urls: 'turn:us-0.turn.peerjs.com:3478',
-            username: 'peerjs',
-            credential: 'peerjsp'
-          }
+          { urls: 'stun:global.stun.twilio.com:3478' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
         ]
       }
     };
 
     function initPeer() {
+      // Eski bağlantıları temizle
+      if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+      if (conn) { try { conn.close(); } catch(e){} conn = null; }
+      document.getElementById('qrcode').innerHTML = '';
+      chatScreen.style.display = 'none';
+      qrScreen.style.display = 'flex';
+
       const myId = 'wtmug-' + Math.random().toString(36).substring(2, 10);
       log('Peer oluşturuluyor: ' + myId);
-      peer = new Peer(myId, peerConfig);
+      setStatus('Sinyal sunucusuna bağlanıyor...', 'waiting');
+
+      try {
+        peer = new Peer(myId, peerConfig);
+      } catch (e) {
+        log('Peer oluşturma hatası: ' + e.message);
+        setStatus('Hata', 'error');
+        return;
+      }
 
       peer.on('open', (id) => {
-        log('Peer açıldı. ID: ' + id);
+        log('✅ Peer açıldı. ID: ' + id);
         setStatus('QR bekleniyor', 'waiting');
         document.getElementById('peerIdText').textContent = 'Oturum ID: ' + id;
         const mobileUrl = new URL('mobile.html', location.href).href + '?id=' + id;
-        document.getElementById('qrcode').innerHTML = '';
         new QRCode(document.getElementById('qrcode'), {
           text: mobileUrl,
           width: 260,
@@ -139,9 +156,9 @@
       });
 
       peer.on('connection', (c) => {
-        log('Gelen bağlantı isteği: ' + c.peer);
+        log('📥 Gelen bağlantı: ' + c.peer);
         if (conn && conn.open) {
-          log('Zaten bağlı, yeni bağlantı reddedildi');
+          log('Zaten bağlı, reddedildi');
           c.close();
           return;
         }
@@ -150,13 +167,18 @@
       });
 
       peer.on('error', (err) => {
-        log('Peer hata: ' + err.type + ' — ' + err.message);
-        setStatus('Hata: ' + err.type, 'waiting');
+        log('Peer hata: ' + err.type + ' — ' + (err.message || ''));
+        setStatus('Hata: ' + err.type, 'error');
       });
 
       peer.on('disconnected', () => {
-        log('Sinyal sunucusundan koptu, yeniden bağlanıyor...');
-        peer.reconnect();
+        log('⚠ Sinyal sunucusundan koptu, yeniden bağlanıyor...');
+        setStatus('Yeniden bağlanıyor...', 'waiting');
+        try { peer.reconnect(); } catch(e) { log('reconnect hatası: ' + e.message); }
+      });
+
+      peer.on('close', () => {
+        log('Peer kapatıldı');
       });
     }
 
@@ -179,20 +201,13 @@
         conn = null;
       });
 
-      c.on('error', (err) => {
-        log('Bağlantı hatası: ' + err);
-      });
+      c.on('error', (err) => log('Bağlantı hatası: ' + err));
 
-      // ICE durumunu izle
       try {
         const pc = c.peerConnection;
         if (pc) {
-          pc.oniceconnectionstatechange = () => {
-            log('ICE durumu: ' + pc.iceConnectionState);
-          };
-          pc.onconnectionstatechange = () => {
-            log('PC durumu: ' + pc.connectionState);
-          };
+          pc.oniceconnectionstatechange = () => log('ICE: ' + pc.iceConnectionState);
+          pc.onconnectionstatechange = () => log('PC: ' + pc.connectionState);
         }
       } catch (e) { log('ICE izleme hatası: ' + e); }
     }
@@ -253,7 +268,8 @@
         incomingFile.ui.setProgress(Math.floor((incomingFile.received / incomingFile.size) * 100));
       } else if (data.type === 'file-end' && incomingFile) {
         const blob = new Blob(incomingFile.chunks, { type: incomingFile.mime });
-        incomingFile.ui.finalize(URL.createObjectURL(blob), incomingFile.mime, incomingFile.name);
+        const url = URL.createObjectURL(blob);
+        incomingFile.ui.finalize(url, incomingFile.mime, incomingFile.name);
         incomingFile = null;
       }
     }
@@ -297,6 +313,11 @@
       if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
       return (b/1048576).toFixed(1) + ' MB';
     }
+
+    restartBtn.addEventListener('click', () => {
+      log('Oturum yenileniyor...');
+      initPeer();
+    });
 
     initPeer();
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.warn);
