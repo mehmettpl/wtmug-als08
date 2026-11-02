@@ -38,6 +38,8 @@
     #inputArea button, #inputArea label { background: #2563eb; color: white; border: none; padding: 10px 16px; border-radius: 20px; cursor: pointer; font-size: 14px; }
     #inputArea label { background: #475569; }
     #fileInput { display: none; }
+    #debugLog { position: fixed; bottom: 0; left: 0; right: 0; max-height: 120px; overflow-y: auto; background: #000a; color: #0f0; font-family: monospace; font-size: 10px; padding: 6px; display: none; z-index: 9999; }
+    #debugLog.show { display: block; }
   </style>
 </head>
 <body>
@@ -51,6 +53,7 @@
     <div id="qrcode"></div>
     <div id="peerIdText">Oturum başlatılıyor...</div>
     <p class="hint">Telefonunuzda <b>mobile.html</b> sayfasını açın ve kamerayı bu QR koda tutun. Bağlantı kurulunca sohbet ekranı otomatik açılır.</p>
+    <button onclick="document.getElementById('debugLog').classList.toggle('show')" style="background:#475569;color:white;border:none;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:12px">🐛 Log</button>
   </div>
 
   <div id="chatScreen">
@@ -62,6 +65,8 @@
       <input type="file" id="fileInput" />
     </div>
   </div>
+
+  <div id="debugLog"></div>
 
   <script>
     const CHUNK_SIZE = 16 * 1024;
@@ -76,22 +81,52 @@
     const msgInput = document.getElementById('msgInput');
     const sendBtn = document.getElementById('sendBtn');
     const fileInput = document.getElementById('fileInput');
+    const debugLog = document.getElementById('debugLog');
+
+    function log(msg) {
+      const t = new Date().toLocaleTimeString('tr-TR');
+      debugLog.innerHTML += `[${t}] ${msg}<br>`;
+      debugLog.scrollTop = debugLog.scrollHeight;
+      console.log(msg);
+    }
 
     function setStatus(text, cls) {
       statusEl.textContent = text;
       statusEl.className = 'status ' + cls;
     }
 
+    // TURN + STUN yapılandırması (mobil ağ NAT için)
+    const peerConfig = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          {
+            urls: 'turn:eu-0.turn.peerjs.com:3478',
+            username: 'peerjs',
+            credential: 'peerjsp'
+          },
+          {
+            urls: 'turn:us-0.turn.peerjs.com:3478',
+            username: 'peerjs',
+            credential: 'peerjsp'
+          }
+        ]
+      }
+    };
+
     function initPeer() {
       const myId = 'wtmug-' + Math.random().toString(36).substring(2, 10);
-      peer = new Peer(myId, {
-        config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
-      });
+      log('Peer oluşturuluyor: ' + myId);
+      peer = new Peer(myId, peerConfig);
 
       peer.on('open', (id) => {
+        log('Peer açıldı. ID: ' + id);
         setStatus('QR bekleniyor', 'waiting');
         document.getElementById('peerIdText').textContent = 'Oturum ID: ' + id;
         const mobileUrl = new URL('mobile.html', location.href).href + '?id=' + id;
+        document.getElementById('qrcode').innerHTML = '';
         new QRCode(document.getElementById('qrcode'), {
           text: mobileUrl,
           width: 260,
@@ -100,31 +135,66 @@
           colorLight: '#fff',
           correctLevel: QRCode.CorrectLevel.M
         });
+        log('QR hazır. URL: ' + mobileUrl);
       });
 
       peer.on('connection', (c) => {
-        if (conn) { c.close(); return; }
+        log('Gelen bağlantı isteği: ' + c.peer);
+        if (conn && conn.open) {
+          log('Zaten bağlı, yeni bağlantı reddedildi');
+          c.close();
+          return;
+        }
         conn = c;
         setupConnection(c);
       });
 
       peer.on('error', (err) => {
-        console.error(err);
+        log('Peer hata: ' + err.type + ' — ' + err.message);
         setStatus('Hata: ' + err.type, 'waiting');
+      });
+
+      peer.on('disconnected', () => {
+        log('Sinyal sunucusundan koptu, yeniden bağlanıyor...');
+        peer.reconnect();
       });
     }
 
     function setupConnection(c) {
-      setStatus('Bağlı ✅', 'connected');
-      qrScreen.style.display = 'none';
-      chatScreen.style.display = 'flex';
-      c.on('open', () => { console.log('Bağlantı açıldı'); });
+      c.on('open', () => {
+        log('✅ DataChannel AÇILDI');
+        setStatus('Bağlı ✅', 'connected');
+        qrScreen.style.display = 'none';
+        chatScreen.style.display = 'flex';
+        msgInput.focus();
+      });
+
       c.on('data', (data) => handleIncomingData(data));
+
       c.on('close', () => {
+        log('❌ Bağlantı kapandı');
         setStatus('Bağlantı kapandı', 'waiting');
         chatScreen.style.display = 'none';
         qrScreen.style.display = 'flex';
+        conn = null;
       });
+
+      c.on('error', (err) => {
+        log('Bağlantı hatası: ' + err);
+      });
+
+      // ICE durumunu izle
+      try {
+        const pc = c.peerConnection;
+        if (pc) {
+          pc.oniceconnectionstatechange = () => {
+            log('ICE durumu: ' + pc.iceConnectionState);
+          };
+          pc.onconnectionstatechange = () => {
+            log('PC durumu: ' + pc.connectionState);
+          };
+        }
+      } catch (e) { log('ICE izleme hatası: ' + e); }
     }
 
     function sendText() {
@@ -176,15 +246,14 @@
         addTextMessage(data.text, 'theirs');
       } else if (data.type === 'file-meta') {
         incomingFile = { fileId: data.fileId, name: data.name, size: data.size, mime: data.mime, chunks: [], received: 0 };
-        incomingFile.ui = addFileMessage(data.name, data.size, 'theirs', data.mime, true);
+        incomingFile.ui = addFileMessage(data.name, data.size, 'theirs', data.mime);
       } else if (data.type === 'file-chunk' && incomingFile && data.fileId === incomingFile.fileId) {
         incomingFile.chunks.push(data.chunk);
         incomingFile.received += data.chunk.byteLength;
         incomingFile.ui.setProgress(Math.floor((incomingFile.received / incomingFile.size) * 100));
       } else if (data.type === 'file-end' && incomingFile) {
         const blob = new Blob(incomingFile.chunks, { type: incomingFile.mime });
-        const url = URL.createObjectURL(blob);
-        incomingFile.ui.finalize(url, incomingFile.mime, incomingFile.name);
+        incomingFile.ui.finalize(URL.createObjectURL(blob), incomingFile.mime, incomingFile.name);
         incomingFile = null;
       }
     }
