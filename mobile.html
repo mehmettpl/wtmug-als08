@@ -110,47 +110,21 @@
       statusEl.className = 'status ' + cls;
     }
 
+    logBtn.addEventListener('click', () => debugLog.classList.toggle('show'));
+
+    // PeerJS yapılandırması — güvenilir STUN + OpenRelay TURN
     const peerConfig = {
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'turn:eu-0.turn.peerjs.com:3478', username: 'peerjs', credential: 'peerjsp' },
-          { urls: 'turn:us-0.turn.peerjs.com:3478', username: 'peerjs', credential: 'peerjsp' }
+          { urls: 'stun:global.stun.twilio.com:3478' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+          { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
         ]
       }
     };
-
-    // Log butonu
-    logBtn.addEventListener('click', () => {
-      debugLog.classList.toggle('show');
-    });
-
-    // Yeniden tara butonu — kamerayı yeniden başlat
-    rescanBtn.addEventListener('click', () => {
-      log('Yeniden tarama başlatılıyor');
-      retryBtn.style.display = 'none';
-      lastHostId = null;
-      connectTimeout && clearTimeout(connectTimeout);
-      if (conn) { try { conn.close(); } catch(e){} conn = null; }
-      if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
-      startCameraScan();
-    });
-
-    // Yeniden dene butonu — son host ID ile tekrar bağlan
-    retryBtn.addEventListener('click', () => {
-      if (lastHostId) {
-        log('Yeniden deneniyor: ' + lastHostId);
-        connectTimeout && clearTimeout(connectTimeout);
-        if (conn) { try { conn.close(); } catch(e){} conn = null; }
-        if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
-        connectToPeer(lastHostId);
-      } else {
-        log('Host ID yok, yeniden tarama başlatılıyor');
-        rescanBtn.click();
-      }
-    });
 
     // URL'de ?id= varsa doğrudan bağlan
     const params = new URLSearchParams(location.search);
@@ -158,9 +132,36 @@
 
     if (targetId) {
       lastHostId = targetId;
+      log('URL\'den Host ID alındı: ' + targetId);
       connectToPeer(targetId);
     } else {
       startCameraScan();
+    }
+
+    // Yeniden tara
+    rescanBtn.addEventListener('click', () => {
+      log('Yeniden tarama başlatılıyor...');
+      cleanupPeer();
+      lastHostId = null;
+      startCameraScan();
+    });
+
+    // Yeniden dene
+    retryBtn.addEventListener('click', () => {
+      if (lastHostId) {
+        log('Yeniden deneniyor: ' + lastHostId);
+        cleanupPeer();
+        connectToPeer(lastHostId);
+      } else {
+        log('Host ID yok, tarama başlatılıyor');
+        rescanBtn.click();
+      }
+    });
+
+    function cleanupPeer() {
+      if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+      if (conn) { try { conn.close(); } catch(e){} conn = null; }
+      if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
     }
 
     async function startCameraScan() {
@@ -219,7 +220,7 @@
       setStatus('Bağlanıyor...', 'waiting');
       log('Peer oluşturuluyor (misafir)');
 
-      if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+      cleanupPeer();
 
       try {
         peer = new Peer(null, peerConfig);
@@ -230,9 +231,11 @@
       }
 
       peer.on('open', (myId) => {
-        log('Kendi ID: ' + myId);
-        log("Host'a bağlanılıyor: " + hostId);
+        log('✅ Kendi ID: ' + myId);
+        log('📤 Host\'a bağlanılıyor: ' + hostId);
+        setStatus('Bağlanıyor...', 'waiting');
 
+        // Host'un sunucuya kaydolması için 2 saniye bekle
         setTimeout(() => {
           try {
             conn = peer.connect(hostId, { reliable: true, serialization: 'binary' });
@@ -241,7 +244,7 @@
             log('connect() hatası: ' + e.message);
             setStatus('Bağlantı hatası', 'error');
           }
-        }, 1500);
+        }, 2000);
       });
 
       peer.on('error', (err) => {
@@ -250,22 +253,22 @@
       });
 
       peer.on('disconnected', () => {
-        log('Sinyal sunucusundan koptu, yeniden bağlanıyor...');
-        try { peer.reconnect(); } catch(e) {}
+        log('⚠ Sinyal sunucusundan koptu, yeniden bağlanıyor...');
+        try { peer.reconnect(); } catch(e) { log('reconnect hatası: ' + e.message); }
       });
     }
 
     function setupConnection(c) {
       connectTimeout = setTimeout(() => {
         if (!c.open) {
-          log('⏱ Bağlantı zaman aşımı (20sn)');
+          log('⏱ Bağlantı zaman aşımı (25sn)');
           setStatus('Zaman aşımı', 'error');
           try { c.close(); } catch(e) {}
         }
-      }, 20000);
+      }, 25000);
 
       c.on('open', () => {
-        clearTimeout(connectTimeout);
+        if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
         log('✅ DataChannel AÇILDI');
         setStatus('Bağlı ✅', 'connected');
         scanScreen.style.display = 'none';
@@ -276,7 +279,7 @@
       c.on('data', (d) => handleIncomingData(d));
 
       c.on('close', () => {
-        clearTimeout(connectTimeout);
+        if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
         log('❌ Bağlantı kapandı');
         setStatus('Bağlantı kapandı', 'waiting');
         chatScreen.style.display = 'none';
