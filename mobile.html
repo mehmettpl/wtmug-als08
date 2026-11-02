@@ -42,7 +42,7 @@
     #inputArea button, #inputArea label { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 20px; cursor: pointer; font-size: 14px; }
     #inputArea label { background: #475569; }
     #fileInput { display: none; }
-    #debugLog { position: fixed; bottom: 0; left: 0; right: 0; max-height: 100px; overflow-y: auto; background: #000d; color: #0f0; font-family: monospace; font-size: 10px; padding: 6px; display: none; z-index: 9999; }
+    #debugLog { position: fixed; bottom: 0; left: 0; right: 0; max-height: 120px; overflow-y: auto; background: #000e; color: #0f0; font-family: monospace; font-size: 10px; padding: 6px; display: none; z-index: 9999; }
     #debugLog.show { display: block; }
   </style>
 </head>
@@ -57,8 +57,9 @@
     <div id="videoWrap"><video id="video" autoplay playsinline muted></video></div>
     <p id="manualHint">Kamera erişimi verin veya QR kodun içindeki bağlantıyı elle girin.</p>
     <div class="btn-row">
-      <button id="retryBtn" style="display:none">🔄 Yeniden Dene</button>
-      <button onclick="document.getElementById('debugLog').classList.toggle('show')">🐛 Log</button>
+      <button id="retryBtn">🔄 Yeniden Dene</button>
+      <button id="rescanBtn">📷 Yeniden Tara</button>
+      <button id="logBtn">🐛 Log</button>
     </div>
   </div>
 
@@ -94,6 +95,8 @@
     const fileInput = document.getElementById('fileInput');
     const debugLog = document.getElementById('debugLog');
     const retryBtn = document.getElementById('retryBtn');
+    const rescanBtn = document.getElementById('rescanBtn');
+    const logBtn = document.getElementById('logBtn');
 
     function log(msg) {
       const t = new Date().toLocaleTimeString('tr-TR');
@@ -119,6 +122,37 @@
       }
     };
 
+    // Log butonu
+    logBtn.addEventListener('click', () => {
+      debugLog.classList.toggle('show');
+    });
+
+    // Yeniden tara butonu — kamerayı yeniden başlat
+    rescanBtn.addEventListener('click', () => {
+      log('Yeniden tarama başlatılıyor');
+      retryBtn.style.display = 'none';
+      lastHostId = null;
+      connectTimeout && clearTimeout(connectTimeout);
+      if (conn) { try { conn.close(); } catch(e){} conn = null; }
+      if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+      startCameraScan();
+    });
+
+    // Yeniden dene butonu — son host ID ile tekrar bağlan
+    retryBtn.addEventListener('click', () => {
+      if (lastHostId) {
+        log('Yeniden deneniyor: ' + lastHostId);
+        connectTimeout && clearTimeout(connectTimeout);
+        if (conn) { try { conn.close(); } catch(e){} conn = null; }
+        if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+        connectToPeer(lastHostId);
+      } else {
+        log('Host ID yok, yeniden tarama başlatılıyor');
+        rescanBtn.click();
+      }
+    });
+
+    // URL'de ?id= varsa doğrudan bağlan
     const params = new URLSearchParams(location.search);
     const targetId = params.get('id');
 
@@ -128,17 +162,6 @@
     } else {
       startCameraScan();
     }
-
-    retryBtn.addEventListener('click', () => {
-      if (lastHostId) {
-        log('Yeniden deneniyor: ' + lastHostId);
-        retryBtn.style.display = 'none';
-        connectToPeer(lastHostId);
-      } else {
-        log('Yeniden denemek için QR okutun');
-        startCameraScan();
-      }
-    });
 
     async function startCameraScan() {
       stopCamera();
@@ -195,18 +218,21 @@
     function connectToPeer(hostId) {
       setStatus('Bağlanıyor...', 'waiting');
       log('Peer oluşturuluyor (misafir)');
-      
-      if (peer) {
-        try { peer.destroy(); } catch(e) {}
-        peer = null;
-      }
 
-      peer = new Peer(null, peerConfig);
+      if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+
+      try {
+        peer = new Peer(null, peerConfig);
+      } catch (e) {
+        log('Peer oluşturma hatası: ' + e.message);
+        setStatus('Hata', 'error');
+        return;
+      }
 
       peer.on('open', (myId) => {
         log('Kendi ID: ' + myId);
-        log('Host\'a bağlanılıyor: ' + hostId);
-        
+        log("Host'a bağlanılıyor: " + hostId);
+
         setTimeout(() => {
           try {
             conn = peer.connect(hostId, { reliable: true, serialization: 'binary' });
@@ -214,15 +240,18 @@
           } catch (e) {
             log('connect() hatası: ' + e.message);
             setStatus('Bağlantı hatası', 'error');
-            retryBtn.style.display = 'inline-block';
           }
         }, 1500);
       });
 
       peer.on('error', (err) => {
-        log('Peer hata: ' + err.type + ' — ' + err.message);
+        log('Peer hata: ' + err.type + ' — ' + (err.message || ''));
         setStatus('Hata: ' + err.type, 'error');
-        retryBtn.style.display = 'inline-block';
+      });
+
+      peer.on('disconnected', () => {
+        log('Sinyal sunucusundan koptu, yeniden bağlanıyor...');
+        try { peer.reconnect(); } catch(e) {}
       });
     }
 
@@ -231,7 +260,6 @@
         if (!c.open) {
           log('⏱ Bağlantı zaman aşımı (20sn)');
           setStatus('Zaman aşımı', 'error');
-          retryBtn.style.display = 'inline-block';
           try { c.close(); } catch(e) {}
         }
       }, 20000);
@@ -243,7 +271,6 @@
         scanScreen.style.display = 'none';
         chatScreen.style.display = 'flex';
         stopCamera();
-        retryBtn.style.display = 'none';
       });
 
       c.on('data', (d) => handleIncomingData(d));
@@ -260,7 +287,6 @@
       c.on('error', (err) => {
         log('Bağlantı hatası: ' + err);
         setStatus('Bağlantı hatası', 'error');
-        retryBtn.style.display = 'inline-block';
       });
 
       try {
