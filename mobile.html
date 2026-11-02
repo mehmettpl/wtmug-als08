@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>P2P Transfer — Mobil</title>
   <link rel="manifest" href="manifest.json" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9Ijk2IiBmaWxsPSIjMGYxNzJhIi8+PHBhdGggZD0iTTE1NiAyNTYgTDM1NiAxNTYgTTM1NiAxNTYgTDM1NiAzNTYgTTM1NiAzNTYgTDE1NiAyNTYiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIyOCIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGNpcmNsZSBjeD0iMTU2IiBjeT0iMjU2IiByPSIzNCIgZmlsbD0iIzIyYzU1ZSIvPjxjaXJjbGUgY3g9IjM1NiIgY3k9IjE1NiIgcj0iMzQiIGZpbGw9IiMyNTYzZWIiLz48Y2lyY2xlIGN4PSIzNTYiIGN5PSIzNTYiIHI9IjM0IiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+" />
   <meta name="theme-color" content="#0f172a" />
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"></script>
@@ -13,32 +12,21 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
     header { padding: 10px 16px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-    header h1 { font-size: 16px; }
     .status { font-size: 12px; padding: 4px 10px; border-radius: 12px; background: #475569; }
     .status.connected { background: #16a34a; }
     .status.waiting { background: #ca8a04; }
     .status.error { background: #dc2626; }
     #scanScreen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 16px; text-align: center; }
-    #scanScreen h2 { font-size: 18px; color: #94a3b8; }
-    #videoWrap { position: relative; width: 100%; max-width: 320px; aspect-ratio: 1; background: #000; border-radius: 16px; overflow: hidden; }
+    #videoWrap { width: 100%; max-width: 300px; aspect-ratio: 1; background: #000; border-radius: 16px; overflow: hidden; }
     #video { width: 100%; height: 100%; object-fit: cover; }
-    #videoWrap::after { content: ''; position: absolute; inset: 12%; border: 2px solid #38bdf8; border-radius: 12px; pointer-events: none; }
-    #manualHint { font-size: 12px; color: #64748b; max-width: 300px; }
-    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
     .btn-row button { background: #475569; color: white; border: none; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 12px; }
     #chatScreen { flex: 1; display: none; flex-direction: column; overflow: hidden; }
     #messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
     .msg { max-width: 82%; padding: 9px 13px; border-radius: 12px; word-wrap: break-word; font-size: 14px; }
     .msg.mine { align-self: flex-end; background: #2563eb; color: white; }
     .msg.theirs { align-self: flex-start; background: #334155; }
-    .msg .meta { font-size: 10px; opacity: 0.7; margin-top: 4px; }
-    .msg img, .msg video { max-width: 220px; max-height: 220px; border-radius: 8px; display: block; margin-top: 6px; }
-    .msg a.download { color: #93c5fd; text-decoration: underline; display: inline-block; margin-top: 6px; font-size: 12px; }
-    .progress { margin-top: 6px; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; }
-    .progress > div { height: 100%; background: #22c55e; width: 0%; transition: width 0.1s; }
-    .progress-label { font-size: 11px; margin-top: 4px; opacity: 0.85; }
     #inputArea { padding: 10px; background: #1e293b; border-top: 1px solid #334155; display: flex; gap: 6px; align-items: center; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
-    #inputArea input[type="text"] { flex: 1; padding: 10px 14px; border-radius: 20px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+    #inputArea input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #475569; background: #0f172a; color: #fff; }
     #inputArea button, #inputArea label { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 20px; cursor: pointer; font-size: 14px; }
     #inputArea label { background: #475569; }
     #fileInput { display: none; }
@@ -55,7 +43,6 @@
   <div id="scanScreen">
     <h2>📷 Bilgisayardaki QR kodu okutun</h2>
     <div id="videoWrap"><video id="video" autoplay playsinline muted></video></div>
-    <p id="manualHint">Kamera erişimi verin veya QR kodun içindeki bağlantıyı elle girin.</p>
     <div class="btn-row">
       <button id="retryBtn">🔄 Yeniden Dene</button>
       <button id="rescanBtn">📷 Yeniden Tara</button>
@@ -76,28 +63,15 @@
   <div id="debugLog"></div>
 
   <script>
-    const CHUNK_SIZE = 16 * 1024;
     let peer = null;
     let conn = null;
     let incomingFile = null;
     let stream = null;
     let scanRAF = null;
     let lastHostId = null;
-    let connectTimeout = null;
+    const CHUNK_SIZE = 16 * 1024;
 
-    const statusEl = document.getElementById('status');
-    const scanScreen = document.getElementById('scanScreen');
-    const chatScreen = document.getElementById('chatScreen');
-    const video = document.getElementById('video');
-    const messagesEl = document.getElementById('messages');
-    const msgInput = document.getElementById('msgInput');
-    const sendBtn = document.getElementById('sendBtn');
-    const fileInput = document.getElementById('fileInput');
     const debugLog = document.getElementById('debugLog');
-    const retryBtn = document.getElementById('retryBtn');
-    const rescanBtn = document.getElementById('rescanBtn');
-    const logBtn = document.getElementById('logBtn');
-
     function log(msg) {
       const t = new Date().toLocaleTimeString('tr-TR');
       debugLog.innerHTML += `[${t}] ${msg}<br>`;
@@ -106,19 +80,20 @@
     }
 
     function setStatus(text, cls) {
-      statusEl.textContent = text;
-      statusEl.className = 'status ' + cls;
+      const el = document.getElementById('status');
+      el.textContent = text;
+      el.className = 'status ' + cls;
     }
 
-    logBtn.addEventListener('click', () => debugLog.classList.toggle('show'));
+    document.getElementById('logBtn').onclick = () => debugLog.classList.toggle('show');
+    document.getElementById('rescanBtn').onclick = () => { cleanup(); startCamera(); };
+    document.getElementById('retryBtn').onclick = () => { if (lastHostId) { cleanup(); connectToPeer(lastHostId); } };
 
-    // PeerJS yapılandırması — güvenilir STUN + OpenRelay TURN
     const peerConfig = {
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' },
           { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
           { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
           { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
@@ -126,59 +101,36 @@
       }
     };
 
-    // URL'de ?id= varsa doğrudan bağlan
-    const params = new URLSearchParams(location.search);
-    const targetId = params.get('id');
-
-    if (targetId) {
-      lastHostId = targetId;
-      log('URL\'den Host ID alındı: ' + targetId);
-      connectToPeer(targetId);
+    const urlParams = new URLSearchParams(location.search);
+    if (urlParams.get('id')) {
+      lastHostId = urlParams.get('id');
+      connectToPeer(lastHostId);
     } else {
-      startCameraScan();
+      startCamera();
     }
 
-    // Yeniden tara
-    rescanBtn.addEventListener('click', () => {
-      log('Yeniden tarama başlatılıyor...');
-      cleanupPeer();
-      lastHostId = null;
-      startCameraScan();
-    });
-
-    // Yeniden dene
-    retryBtn.addEventListener('click', () => {
-      if (lastHostId) {
-        log('Yeniden deneniyor: ' + lastHostId);
-        cleanupPeer();
-        connectToPeer(lastHostId);
-      } else {
-        log('Host ID yok, tarama başlatılıyor');
-        rescanBtn.click();
-      }
-    });
-
-    function cleanupPeer() {
-      if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
+    function cleanup() {
       if (conn) { try { conn.close(); } catch(e){} conn = null; }
       if (peer) { try { peer.destroy(); } catch(e){} peer = null; }
+      stopCamera();
     }
 
-    async function startCameraScan() {
+    async function startCamera() {
       stopCamera();
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        const video = document.getElementById('video');
         video.srcObject = stream;
-        video.addEventListener('loadedmetadata', () => { scanLoop(); }, { once: true });
-        log('Kamera açıldı, QR taranıyor');
+        video.onloadedmetadata = () => scanLoop();
+        log('Kamera açıldı');
       } catch (err) {
         log('Kamera hatası: ' + err.message);
         setStatus('Kamera hatası', 'error');
-        document.getElementById('manualHint').textContent = 'Kamera açılamadı: ' + err.message;
       }
     }
 
     function scanLoop() {
+      const video = document.getElementById('video');
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       const tick = () => {
@@ -187,17 +139,18 @@
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+          const code = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
           if (code && code.data) {
-            const id = extractPeerIdFromUrl(code.data);
-            if (id) {
-              log('QR okundu! Host ID: ' + id);
-              lastHostId = id;
-              stopCamera();
-              connectToPeer(id);
-              return;
-            }
+            try {
+              const id = new URL(code.data).searchParams.get('id');
+              if (id) {
+                lastHostId = id;
+                log('QR Okundu. Hedef: ' + id);
+                stopCamera();
+                connectToPeer(id);
+                return;
+              }
+            } catch(e){}
           }
         }
         scanRAF = requestAnimationFrame(tick);
@@ -205,206 +158,138 @@
       scanRAF = requestAnimationFrame(tick);
     }
 
-    function extractPeerIdFromUrl(url) {
-      try { return new URL(url).searchParams.get('id'); } catch { return null; }
-    }
-
     function stopCamera() {
       if (scanRAF) cancelAnimationFrame(scanRAF);
-      scanRAF = null;
       if (stream) stream.getTracks().forEach(t => t.stop());
       stream = null;
     }
 
     function connectToPeer(hostId) {
       setStatus('Bağlanıyor...', 'waiting');
-      log('Peer oluşturuluyor (misafir)');
-
-      cleanupPeer();
-
-      try {
-        peer = new Peer(null, peerConfig);
-      } catch (e) {
-        log('Peer oluşturma hatası: ' + e.message);
-        setStatus('Hata', 'error');
-        return;
-      }
+      log('Peer oluşturuluyor...');
+      
+      peer = new Peer(null, peerConfig);
 
       peer.on('open', (myId) => {
         log('✅ Kendi ID: ' + myId);
-        log('📤 Host\'a bağlanılıyor: ' + hostId);
-        setStatus('Bağlanıyor...', 'waiting');
-
-        // Host'un sunucuya kaydolması için 2 saniye bekle
+        log('📤 Host aranıyor: ' + hostId);
+        
+        // Gecikmeyi 2 saniyeye çıkardık (Host'un hazır olması için)
         setTimeout(() => {
+          // serialization kaldırıldı, varsayılan (JSON) kullanılacak
+          conn = peer.connect(hostId, { reliable: true });
+          
+          conn.on('open', () => {
+            log('✅ DataChannel AÇILDI');
+            setStatus('Bağlı ✅', 'connected');
+            document.getElementById('scanScreen').style.display = 'none';
+            document.getElementById('chatScreen').style.display = 'flex';
+            stopCamera();
+          });
+
+          conn.on('data', (data) => {
+            if (data.type === 'text') {
+              addTextMessage(data.text, 'theirs');
+            } else if (data.type === 'file-meta') {
+              incomingFile = { fileId: data.fileId, name: data.name, size: data.size, mime: data.mime, chunks: [], received: 0 };
+              incomingFile.ui = addFileMessage(data.name, data.size, 'theirs', data.mime);
+            } else if (data.type === 'file-chunk' && incomingFile && data.fileId === incomingFile.fileId) {
+              incomingFile.chunks.push(data.chunk);
+              incomingFile.received += data.chunk.byteLength;
+              incomingFile.ui.setProgress(Math.floor((incomingFile.received / incomingFile.size) * 100));
+            } else if (data.type === 'file-end' && incomingFile) {
+              const blob = new Blob(incomingFile.chunks, { type: incomingFile.mime });
+              incomingFile.ui.finalize(URL.createObjectURL(blob), incomingFile.mime, incomingFile.name);
+              incomingFile = null;
+            }
+          });
+
+          conn.on('close', () => {
+            log('❌ Bağlantı kapandı');
+            setStatus('Bağlantı kapandı', 'waiting');
+          });
+
           try {
-            conn = peer.connect(hostId, { reliable: true, serialization: 'binary' });
-            setupConnection(conn);
-          } catch (e) {
-            log('connect() hatası: ' + e.message);
-            setStatus('Bağlantı hatası', 'error');
-          }
+            const pc = conn.peerConnection;
+            if (pc) {
+              pc.oniceconnectionstatechange = () => log('🧊 ICE: ' + pc.iceConnectionState);
+              pc.onconnectionstatechange = () => log('🔌 PC: ' + pc.connectionState);
+            }
+          } catch(e){}
+
         }, 2000);
       });
 
       peer.on('error', (err) => {
-        log('Peer hata: ' + err.type + ' — ' + (err.message || ''));
-        setStatus('Hata: ' + err.type, 'error');
+        log('❌ Peer hata: ' + err.type);
+        setStatus('Hata', 'error');
       });
-
-      peer.on('disconnected', () => {
-        log('⚠ Sinyal sunucusundan koptu, yeniden bağlanıyor...');
-        try { peer.reconnect(); } catch(e) { log('reconnect hatası: ' + e.message); }
-      });
-    }
-
-    function setupConnection(c) {
-      connectTimeout = setTimeout(() => {
-        if (!c.open) {
-          log('⏱ Bağlantı zaman aşımı (25sn)');
-          setStatus('Zaman aşımı', 'error');
-          try { c.close(); } catch(e) {}
-        }
-      }, 25000);
-
-      c.on('open', () => {
-        if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
-        log('✅ DataChannel AÇILDI');
-        setStatus('Bağlı ✅', 'connected');
-        scanScreen.style.display = 'none';
-        chatScreen.style.display = 'flex';
-        stopCamera();
-      });
-
-      c.on('data', (d) => handleIncomingData(d));
-
-      c.on('close', () => {
-        if (connectTimeout) { clearTimeout(connectTimeout); connectTimeout = null; }
-        log('❌ Bağlantı kapandı');
-        setStatus('Bağlantı kapandı', 'waiting');
-        chatScreen.style.display = 'none';
-        scanScreen.style.display = 'flex';
-        conn = null;
-      });
-
-      c.on('error', (err) => {
-        log('Bağlantı hatası: ' + err);
-        setStatus('Bağlantı hatası', 'error');
-      });
-
-      try {
-        const pc = c.peerConnection;
-        if (pc) {
-          pc.oniceconnectionstatechange = () => log('ICE: ' + pc.iceConnectionState);
-          pc.onconnectionstatechange = () => log('PC: ' + pc.connectionState);
-          pc.onicecandidate = (e) => {
-            if (e.candidate) log('ICE aday: ' + e.candidate.type);
-          };
-        }
-      } catch (e) { log('ICE izleme hatası: ' + e); }
     }
 
     function sendText() {
-      const t = msgInput.value.trim();
-      if (!t || !conn || !conn.open) return;
-      conn.send({ type: 'text', text: t, ts: Date.now() });
-      addTextMessage(t, 'mine');
-      msgInput.value = '';
+      const text = document.getElementById('msgInput').value.trim();
+      if (!text || !conn || !conn.open) return;
+      conn.send({ type: 'text', text });
+      addTextMessage(text, 'mine');
+      document.getElementById('msgInput').value = '';
     }
-    sendBtn.addEventListener('click', sendText);
-    msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendText(); });
 
-    fileInput.addEventListener('change', e => {
-      const f = e.target.files[0];
-      if (!f || !conn || !conn.open) return;
-      sendFile(f);
-      fileInput.value = '';
-    });
+    document.getElementById('sendBtn').onclick = sendText;
+    document.getElementById('msgInput').onkeydown = (e) => { if (e.key === 'Enter') sendText(); };
 
-    async function sendFile(file) {
-      const fileId = 'f' + Date.now() + Math.random().toString(36).substring(2, 6);
-      conn.send({ type: 'file-meta', fileId, name: file.name, size: file.size, mime: file.type || 'application/octet-stream' });
+    document.getElementById('fileInput').onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file || !conn || !conn.open) return;
+      
+      const fileId = 'f' + Date.now();
+      conn.send({ type: 'file-meta', fileId, name: file.name, size: file.size, mime: file.type });
       const ui = addFileMessage(file.name, file.size, 'mine', file.type);
+      
       let offset = 0;
       const reader = new FileReader();
-      const pump = () => {
+      const next = () => {
         if (offset >= file.size) {
           conn.send({ type: 'file-end', fileId });
-          ui.setProgress(100);
-          ui.finalize(URL.createObjectURL(file), file.type);
+          ui.setProgress(100); ui.finalize(URL.createObjectURL(file), file.type);
           return;
         }
         reader.readAsArrayBuffer(file.slice(offset, offset + CHUNK_SIZE));
       };
       reader.onload = (ev) => {
-        const chunk = ev.target.result;
-        conn.send({ type: 'file-chunk', fileId, chunk });
-        offset += chunk.byteLength;
+        conn.send({ type: 'file-chunk', fileId, chunk: ev.target.result });
+        offset += ev.target.result.byteLength;
         ui.setProgress(Math.floor((offset / file.size) * 100));
-        setTimeout(pump, 0);
+        setTimeout(next, 0);
       };
-      pump();
-    }
-
-    function handleIncomingData(data) {
-      if (!data || !data.type) return;
-      if (data.type === 'text') {
-        addTextMessage(data.text, 'theirs');
-      } else if (data.type === 'file-meta') {
-        incomingFile = { fileId: data.fileId, name: data.name, size: data.size, mime: data.mime, chunks: [], received: 0 };
-        incomingFile.ui = addFileMessage(data.name, data.size, 'theirs', data.mime);
-      } else if (data.type === 'file-chunk' && incomingFile && data.fileId === incomingFile.fileId) {
-        incomingFile.chunks.push(data.chunk);
-        incomingFile.received += data.chunk.byteLength;
-        incomingFile.ui.setProgress(Math.floor((incomingFile.received / incomingFile.size) * 100));
-      } else if (data.type === 'file-end' && incomingFile) {
-        const blob = new Blob(incomingFile.chunks, { type: incomingFile.mime });
-        incomingFile.ui.finalize(URL.createObjectURL(blob), incomingFile.mime, incomingFile.name);
-        incomingFile = null;
-      }
-    }
+      next();
+      e.target.value = '';
+    };
 
     function addTextMessage(text, who) {
       const el = document.createElement('div');
       el.className = 'msg ' + who;
-      el.innerHTML = escapeHtml(text) + `<div class="meta">${new Date().toLocaleTimeString('tr-TR')}</div>`;
-      messagesEl.appendChild(el);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      el.innerHTML = text.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      document.getElementById('messages').appendChild(el);
+      document.getElementById('messages').scrollTop = 99999;
     }
 
     function addFileMessage(name, size, who, mime) {
       const el = document.createElement('div');
       el.className = 'msg ' + who;
-      el.innerHTML = `<div>📎 <b>${escapeHtml(name)}</b> <span style="opacity:.6">(${formatSize(size)})</span></div><div class="progress"><div></div></div><div class="progress-label">0%</div>`;
+      el.innerHTML = `<div>📎 <b>${name}</b></div><div class="progress" style="height:6px;background:#1e293b;margin-top:6px"><div style="height:100%;background:#22c55e;width:0%"></div></div><div class="progress-label" style="font-size:11px">0%</div>`;
       const bar = el.querySelector('.progress > div');
       const label = el.querySelector('.progress-label');
-      messagesEl.appendChild(el);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
+      document.getElementById('messages').appendChild(el);
       return {
-        setProgress(p) { bar.style.width = p + '%'; label.textContent = p + '%'; },
-        finalize(url, type, filename) {
+        setProgress: (p) => { bar.style.width = p + '%'; label.textContent = p + '%'; },
+        finalize: (url, type) => {
           label.textContent = '✅ Tamamlandı';
-          if (type.startsWith('image/')) {
-            const img = document.createElement('img'); img.src = url; el.appendChild(img);
-          } else if (type.startsWith('video/')) {
-            const v = document.createElement('video'); v.src = url; v.controls = true; el.appendChild(v);
-          } else {
-            const a = document.createElement('a'); a.href = url; a.download = filename || name; a.className = 'download'; a.textContent = '⬇ İndir'; a.target = '_blank'; el.appendChild(a);
-          }
+          if (type.startsWith('image/')) el.innerHTML += `<img src="${url}" style="max-width:200px;border-radius:8px;margin-top:6px">`;
+          else if (type.startsWith('video/')) el.innerHTML += `<video src="${url}" controls style="max-width:200px;border-radius:8px;margin-top:6px"></video>`;
+          else el.innerHTML += `<a href="${url}" download="${name}" style="color:#93c5fd;display:block;margin-top:6px">⬇ İndir</a>`;
         }
       };
     }
-
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-    }
-    function formatSize(b) {
-      if (b < 1024) return b + ' B';
-      if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
-      return (b/1048576).toFixed(1) + ' MB';
-    }
-
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.warn);
   </script>
 </body>
 </html>
