@@ -1,4 +1,4 @@
-const CACHE = 'p2p-transfer-v3';
+const CACHE = 'p2p-transfer-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -21,6 +21,7 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Network-first: önce ağdan dene, başarısız olursa cache'den ver
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || !e.request.url.startsWith(location.origin)) return;
   e.respondWith(
