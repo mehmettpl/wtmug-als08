@@ -119,7 +119,6 @@
       }
     };
 
-    // URL'de ?id= varsa doğrudan bağlan
     const params = new URLSearchParams(location.search);
     const targetId = params.get('id');
 
@@ -197,7 +196,6 @@
       setStatus('Bağlanıyor...', 'waiting');
       log('Peer oluşturuluyor (misafir)');
       
-      // Eski peer'i temizle
       if (peer) {
         try { peer.destroy(); } catch(e) {}
         peer = null;
@@ -209,7 +207,6 @@
         log('Kendi ID: ' + myId);
         log('Host\'a bağlanılıyor: ' + hostId);
         
-        // Host'un sinyal sunucusuna kaydolmasını bekle (yarış durumu önleme)
         setTimeout(() => {
           try {
             conn = peer.connect(hostId, { reliable: true, serialization: 'binary' });
@@ -230,7 +227,6 @@
     }
 
     function setupConnection(c) {
-      // 20 saniye timeout — bağlantı kurulamazsa yeniden dene
       connectTimeout = setTimeout(() => {
         if (!c.open) {
           log('⏱ Bağlantı zaman aşımı (20sn)');
@@ -267,7 +263,6 @@
         retryBtn.style.display = 'inline-block';
       });
 
-      // ICE/PC durumunu izle
       try {
         const pc = c.peerConnection;
         if (pc) {
